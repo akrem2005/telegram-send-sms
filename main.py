@@ -3,6 +3,7 @@ from telethon import TelegramClient
 from telethon.tl.functions.contacts import ImportContactsRequest
 from telethon.tl.types import InputPhoneContact
 import asyncio
+import os
 
 app = Flask(__name__)
 
@@ -10,6 +11,7 @@ app = Flask(__name__)
 api_id = '29433390'
 api_hash = '95c71a35449348e4940087362aff698b'
 phone_number = '+251929175653'
+API_PASSWORD = "password"  # Use env variable or fallback
 
 async def send_telegram_message(recipient_phone, message):
     client = TelegramClient('session_name', api_id, api_hash)
@@ -37,8 +39,12 @@ async def send_telegram_message(recipient_phone, message):
 @app.route('/send_message', methods=['POST'])
 def send_message():
     data = request.get_json()
+    password = data.get('password')
     recipient_phone = data.get('recipient_phone')
     message = data.get('message', 'Hello from Flask API!')
+    
+    if not password or password != API_PASSWORD:
+        return jsonify({"status": "error", "message": "Invalid or missing password"}), 401
     
     if not recipient_phone:
         return jsonify({"status": "error", "message": "recipient_phone is required"}), 400
@@ -52,4 +58,5 @@ def send_message():
     return jsonify(result)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.getenv('PORT', 5000))  # Use PORT env variable or default to 5000
+    app.run(host='0.0.0.0', port=port, debug=True)
