@@ -1,18 +1,18 @@
-from telethon import TelegramClient, sync
+from flask import Flask, request, jsonify
+from telethon import TelegramClient
 from telethon.tl.functions.contacts import ImportContactsRequest
 from telethon.tl.types import InputPhoneContact
+import asyncio
+
+app = Flask(__name__)
 
 # Replace these with your credentials
-api_id = '29433390'  # e.g., 123456
-api_hash = '95c71a35449348e4940087362aff698b'  # e.g., '1234567890abcdef1234567890abcdef'
-phone_number = '+251929175653'  # e.g., '+1234567890'
-recipient_phone = '+251982547791'  # e.g., '+0987654321'
-message = 'S'
+api_id = '29433390'
+api_hash = '95c71a35449348e4940087362aff698b'
+phone_number = '+251929175653'
 
-# Initialize the Telegram client
-client = TelegramClient('session_name', api_id, api_hash)
-
-async def send_message_to_phone():
+async def send_telegram_message(recipient_phone, message):
+    client = TelegramClient('session_name', api_id, api_hash)
     try:
         # Start the client
         await client.start(phone=phone_number)
@@ -26,21 +26,30 @@ async def send_message_to_phone():
         )
         result = await client(ImportContactsRequest([contact]))
         
-        # Check if contact was added successfully
-        if result.imported:
-            print(f"Added {recipient_phone} to contacts.")
-        else:
-            print(f"Contact {recipient_phone} already exists or is not on Telegram.")
-        
         # Send the message
         await client.send_message(recipient_phone, message)
-        print(f"Message sent to {recipient_phone}: {message}")
-        
+        return {"status": "success", "message": f"Message sent to {recipient_phone}"}
     except Exception as e:
-        print(f"Error: {e}")
+        return {"status": "error", "message": str(e)}
     finally:
         await client.disconnect()
 
-# Run the async function
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    data = request.get_json()
+    recipient_phone = data.get('recipient_phone')
+    message = data.get('message', 'Hello from Flask API!')
+    
+    if not recipient_phone:
+        return jsonify({"status": "error", "message": "recipient_phone is required"}), 400
+    
+    # Run the async function in the event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(send_telegram_message(recipient_phone, message))
+    loop.close()
+    
+    return jsonify(result)
+
 if __name__ == '__main__':
-    client.loop.run_until_complete(send_message_to_phone())
+    app.run(debug=True)
